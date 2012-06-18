@@ -73,6 +73,14 @@ public class F {
      */
     public static class Promise<A> {
 
+        /*
+         * reset underlying shared actors
+         * useful for mainly in tests
+         */
+        public static void resetActors() {
+            actors=null;
+        }
+
         /**
          * Combine the given promises into a single promise for the list of results.
          *

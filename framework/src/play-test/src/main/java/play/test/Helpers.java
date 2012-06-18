@@ -275,6 +275,7 @@ public class Helpers implements play.mvc.Http.Status, play.mvc.Http.HeaderNames 
      * Starts a new application.
      */
     public static void start(FakeApplication fakeApplication) {
+        play.api.libs.concurrent.Promise$.MODULE$.resetSystem();
         play.api.Play.start(fakeApplication.getWrappedApplication());
     }
     
@@ -282,6 +283,7 @@ public class Helpers implements play.mvc.Http.Status, play.mvc.Http.HeaderNames 
      * Stops an application.
      */
     public static void stop(FakeApplication fakeApplication) {
+        play.api.libs.concurrent.Promise$.MODULE$.resetSystem();
         play.api.Play.stop();
     }
     
@@ -323,6 +325,7 @@ public class Helpers implements play.mvc.Http.Status, play.mvc.Http.HeaderNames 
      */
     public static void stop(TestServer server) {
         server.stop();
+
     }
     
     /**

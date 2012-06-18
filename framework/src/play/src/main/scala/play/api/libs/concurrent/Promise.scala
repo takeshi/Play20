@@ -219,13 +219,28 @@ object PurePromise {
 }
 
 object Promise {
+  /* resets underlying promise Actor System and Java actor references */
+  def resetSystem(): Unit = {
+    underlyingSystem.filter(_.isTerminated == false).map{s =>
+      s.shutdown()
+      s.awaitTermination()
+      }.getOrElse(Nil)
+    play.libs.F.Promise.resetActors()
+    underlyingSystem = None
+  }
+
+  private var underlyingSystem: Option[ActorSystem] = Some(ActorSystem("promise"))
 
   private[concurrent] def invoke[T](t: => T): Promise[T] = akka.dispatch.Future { t }(Promise.system.dispatcher).asPromise
   
   private [concurrent] lazy val defaultTimeout = 
     Duration(system.settings.config.getMilliseconds("promise.akka.actor.typed.timeout"), TimeUnit.MILLISECONDS).toMillis 
 
-  private [concurrent] lazy val system = ActorSystem("promise")
+  def system = underlyingSystem.getOrElse{
+    val a = ActorSystem("promise")
+    underlyingSystem = Some(a)
+    a
+  }  
 
   def pure[A](a: => A): Promise[A] = PurePromise(a)
 

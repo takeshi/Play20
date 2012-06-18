@@ -30,10 +30,12 @@ object Helpers extends Status with HeaderNames {
    */
   def running[T](fakeApp: FakeApplication)(block: => T): T = {
     try {
+      play.api.libs.concurrent.Promise.resetSystem()
       Play.start(fakeApp)
       block
     } finally {
       Play.stop()
+      play.api.libs.concurrent.Promise.resetSystem()
     }
   }
 
