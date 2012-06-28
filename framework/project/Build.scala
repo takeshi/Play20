@@ -123,7 +123,7 @@ object PlayBuild extends Build {
         val buildVersion      = Option(System.getProperty("play.version")).filterNot(_.isEmpty).getOrElse("2.0-unknown")
         val buildScalaVersion = Option(System.getProperty("scala.version")).getOrElse("2.9.2")
         val buildScalaVersionForSbt = "2.9.2"
-        val buildSbtVersion   = "0.12.0-RC2"
+        val buildSbtVersion   = "0.12.0-RC3"
 
         val buildSettings = Defaults.defaultSettings ++ Seq (
             organization   := buildOrganization,
