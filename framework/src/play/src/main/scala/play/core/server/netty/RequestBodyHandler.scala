@@ -23,15 +23,15 @@ import scala.collection.JavaConverters._
 
 private[server] trait RequestBodyHandler {
 
-  def newRequestBodyHandler[R](firstIteratee: Promise[Iteratee[Array[Byte], Either[Result, R]]], allChannels: DefaultChannelGroup, server: Server): (Promise[Iteratee[Array[Byte], Either[Result, R]]], SimpleChannelUpstreamHandler) = {
+  def newRequestBodyHandler[R](firstIteratee: Promise[Iteratee[Array[Byte], Result]], allChannels: DefaultChannelGroup, server: Server): (Promise[Iteratee[Array[Byte], Result]], SimpleChannelUpstreamHandler) = {
     var redeemed = false
-    var p = Promise[Iteratee[Array[Byte], Either[Result, R]]]()
+    var p = Promise[Iteratee[Array[Byte], Result]]()
     val MAX_MESSAGE_WATERMARK = 10
     val MIN_MESSAGE_WATERMARK = 10
     import scala.concurrent.stm._
     val counter = Ref(0)
 
-    var iteratee: Ref[Iteratee[Array[Byte], Either[Result, R]]] = Ref(Iteratee.flatten(firstIteratee))
+    var iteratee: Ref[Iteratee[Array[Byte], Result]] = Ref(Iteratee.flatten(firstIteratee))
 
     def pushChunk(ctx: ChannelHandlerContext, chunk: Input[Array[Byte]]) {
 
@@ -39,9 +39,9 @@ private[server] trait RequestBodyHandler {
         ctx.getChannel.setReadable(false)
 
       if (!redeemed) {
-        val itPromise = Promise[Iteratee[Array[Byte], Either[Result, R]]]()
+        val itPromise = Promise[Iteratee[Array[Byte], Result]]()
         val current = iteratee.single.swap(Iteratee.flatten(itPromise.future))
-        val next = current.pureFlatFold[Array[Byte], Either[Result, R]] {
+        val next = current.pureFlatFold[Array[Byte], Result] {
           case Step.Done(_, _) => current
           case Step.Cont(k) => k(chunk)
           case Step.Error(e, _) => current
@@ -49,22 +49,23 @@ private[server] trait RequestBodyHandler {
 
         itPromise.redeem(next)
 
-        next.pureFold {
-          case Step.Done(a, e) => if (!redeemed) {
+        next.unflatten.extend1 {
+          case Redeemed(Step.Done(a, e)) => if (!redeemed) {
             p.redeem(next);
             iteratee = null; p = null; redeemed = true
             if (ctx.getChannel.isOpen()) ctx.getChannel.setReadable(true)
           }
-          case Step.Cont(k) =>
+          case Redeemed(Step.Cont(k)) =>
             if (counter.single.transformAndGet { _ - 1 } <= MIN_MESSAGE_WATERMARK && ctx.getChannel.isOpen())
               ctx.getChannel.setReadable(true)
 
-          case Step.Error(msg, e) =>
+          case Redeemed(Step.Error(msg, e)) =>
             if (!redeemed) {
-              p.redeem(Done(Left(Results.InternalServerError), e))
+              p.redeem(Done(Results.InternalServerError, e))
               iteratee = null; p = null; redeemed = true
               if (ctx.getChannel.isOpen()) ctx.getChannel.setReadable(true)
             }
+          case Thrown(e) => p.throwing(e)
         }
       }
     }
